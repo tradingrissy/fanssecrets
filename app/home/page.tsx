@@ -3,16 +3,14 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   Home, Search, Bell, MessageCircle, User, Heart, MessageSquare,
-  Share2, Bookmark, MoreHorizontal, Lock, Play, DollarSign, Crown,
-  TrendingUp, Users, Plus, Video, Gift, Settings, Menu, Flame,
-  Sparkles, Zap
+  Share2, Bookmark, MoreHorizontal, Lock, DollarSign, Crown,
+  Users, Plus, Gift, Settings, Menu, Flame, Sparkles
 } from 'lucide-react'
 import Link from 'next/link'
-import Image from 'next/image'
 
 export default function HomePage() {
   const router = useRouter()
@@ -22,6 +20,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState('foryou')
   const [likedPosts, setLikedPosts] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -57,6 +56,12 @@ export default function HomePage() {
     router.push('/')
   }
 
+  function handleSearch(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      router.push(`/search?q=${searchQuery}`)
+    }
+  }
+
   if (loading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -74,9 +79,9 @@ export default function HomePage() {
             </div>
             <span className="font-bold text-lg text-foreground">fanssecrets</span>
           </Link>
-          <Link href="/messages">
+          <Link href="/notifications">
             <Button variant="ghost" size="icon" className="relative">
-              <MessageCircle className="w-6 h-6" />
+              <Bell className="w-6 h-6" />
             </Button>
           </Link>
         </div>
@@ -93,7 +98,8 @@ export default function HomePage() {
           <nav className="flex-1 space-y-1">
             {[
               { icon: Home, label: 'Home', href: '/home', active: true },
-              { icon: Search, label: 'Discover', href: '/discover' },
+              { icon: Search, label: 'Search', href: '/search' },
+              { icon: Bell, label: 'Notifications', href: '/notifications' },
               { icon: MessageCircle, label: 'Messages', href: '/messages' },
               { icon: User, label: 'My Profile', href: `/profile/${profile?.username}` },
               { icon: Settings, label: 'Dashboard', href: '/dashboard' },
@@ -113,8 +119,12 @@ export default function HomePage() {
             New Post
           </Button>
           <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-secondary cursor-pointer" onClick={() => router.push(`/profile/${profile?.username}`)}>
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
-              {profile?.display_name?.[0]?.toUpperCase() || profile?.username?.[0]?.toUpperCase() || '?'}
+            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold overflow-hidden shrink-0">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} className="w-full h-full object-cover" />
+              ) : (
+                profile?.display_name?.[0]?.toUpperCase() || profile?.username?.[0]?.toUpperCase() || '?'
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-medium text-foreground truncate">{profile?.display_name || profile?.username}</p>
@@ -155,7 +165,7 @@ export default function HomePage() {
                 <Sparkles className="w-10 h-10 text-muted-foreground" />
               </div>
               <h2 className="text-xl font-semibold text-foreground mb-2">No posts yet</h2>
-              <p className="text-muted-foreground mb-6">Follow creators to see their content here, or be the first to post!</p>
+              <p className="text-muted-foreground mb-6">Follow creators to see their content here!</p>
               <div className="flex gap-3">
                 <Button className="bg-primary hover:bg-primary/90" onClick={() => router.push('/discover')}>
                   Discover Creators
@@ -171,7 +181,7 @@ export default function HomePage() {
                 <article key={post.id} className="p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <Link href={`/profile/${post.creator?.username}`}>
-                      <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-bold overflow-hidden">
+                      <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-bold overflow-hidden shrink-0">
                         {post.creator?.avatar_url ? (
                           <img src={post.creator.avatar_url} className="w-full h-full object-cover" />
                         ) : (
@@ -203,7 +213,7 @@ export default function HomePage() {
                     <div className="relative rounded-xl overflow-hidden mb-3">
                       {post.is_ppv ? (
                         <div className="relative">
-                          <img src={post.media_urls[0]} alt="" className="w-full object-cover blur-xl" />
+                          <img src={post.media_urls[0]} alt="" className="w-full object-cover blur-xl scale-110" />
                           <div className="absolute inset-0 bg-background/60 flex flex-col items-center justify-center">
                             <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-3">
                               <Lock className="w-8 h-8 text-primary" />
@@ -255,24 +265,29 @@ export default function HomePage() {
         <aside className="hidden xl:block w-80 h-screen sticky top-0 p-4 space-y-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input placeholder="Search creators..." className="pl-10 bg-secondary border-0" onChange={e => { if (e.target.value) router.push(`/discover?q=${e.target.value}`) }} />
+            <Input
+              placeholder="Search creators..."
+              className="pl-10 bg-secondary border-0"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearch}
+              onClick={() => router.push('/search')}
+            />
           </div>
           <div className="bg-card border border-border rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Quick Actions</h3>
-            </div>
+            <h3 className="font-semibold text-foreground mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-2">
               <Button variant="outline" size="sm" className="justify-start" onClick={() => router.push('/dashboard/upload')}>
                 <Plus className="w-4 h-4 mr-2" />Upload
               </Button>
-              <Button variant="outline" size="sm" className="justify-start" onClick={() => router.push('/discover')}>
-                <Search className="w-4 h-4 mr-2" />Discover
+              <Button variant="outline" size="sm" className="justify-start" onClick={() => router.push('/search')}>
+                <Search className="w-4 h-4 mr-2" />Search
               </Button>
               <Button variant="outline" size="sm" className="justify-start" onClick={() => router.push('/messages')}>
                 <MessageCircle className="w-4 h-4 mr-2" />Messages
               </Button>
-              <Button variant="outline" size="sm" className="justify-start" onClick={() => router.push('/dashboard')}>
-                <Settings className="w-4 h-4 mr-2" />Dashboard
+              <Button variant="outline" size="sm" className="justify-start" onClick={() => router.push('/notifications')}>
+                <Bell className="w-4 h-4 mr-2" />Alerts
               </Button>
             </div>
           </div>
@@ -288,13 +303,13 @@ export default function HomePage() {
         </aside>
       </div>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-40">
         <div className="flex items-center justify-around py-2">
           {[
             { icon: Home, label: 'Home', href: '/home' },
-            { icon: Search, label: 'Discover', href: '/discover' },
+            { icon: Search, label: 'Search', href: '/search' },
             { icon: Plus, label: 'Create', href: '/dashboard/upload', special: true },
-            { icon: Bell, label: 'Alerts', href: '#' },
+            { icon: Bell, label: 'Alerts', href: '/notifications' },
             { icon: User, label: 'Profile', href: `/profile/${profile?.username}` },
           ].map((item) => (
             <Link key={item.label} href={item.href} className="flex flex-col items-center gap-1 p-2">
