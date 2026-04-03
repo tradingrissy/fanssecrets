@@ -5,9 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   Verified, Heart, MessageCircle, Share2, Lock,
-  Image, Video, Grid3X3, List, Play, MapPin,
-  Link as LinkIcon, Calendar, Bell, Gift, Check,
-  MoreHorizontal
+  Image, Video, Grid3X3, List, Play, Bell, Gift, Check
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -22,7 +20,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [selectedTier, setSelectedTier] = useState<number | null>(null)
+  const [isFollowing, setIsFollowing] = useState(false)
+  const [followerCount, setFollowerCount] = useState(0)
+  const [showTipModal, setShowTipModal] = useState(false)
+  const [tipAmount, setTipAmount] = useState('')
+  const [tipping, setTipping] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -52,10 +54,44 @@ export default function ProfilePage() {
         .order('created_at', { ascending: false })
       setPosts(postsData || [])
 
+      const { count: fCount } = await supabase
+        .from('follows')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', creatorData.id)
+      setFollowerCount(fCount || 0)
+
+      if (user) {
+        const { data: followData } = await supabase
+          .from('follows')
+          .select('*')
+          .eq('follower_id', user.id)
+          .eq('following_id', creatorData.id)
+          .single()
+        setIsFollowing(!!followData)
+      }
+
       setLoading(false)
     }
     load()
   }, [username])
+
+  async function toggleFollow() {
+    if (!currentUser) { router.push('/'); return }
+    if (isFollowing) {
+      await supabase.from('follows').delete()
+        .eq('follower_id', currentUser.id)
+        .eq('following_id', creator.id)
+      setIsFollowing(false)
+      setFollowerCount(prev => prev - 1)
+    } else {
+      await supabase.from('follows').insert({
+        follower_id: currentUser.id,
+        following_id: creator.id
+      })
+      setIsFollowing(true)
+      setFollowerCount(prev => prev + 1)
+    }
+  }
 
   async function subscribe(tierId: string) {
     if (!currentUser) { router.push('/'); return }
@@ -66,6 +102,23 @@ export default function ProfilePage() {
     })
     const { url } = await res.json()
     if (url) window.location.href = url
+  }
+
+  async function sendTip() {
+    if (!currentUser || !tipAmount) return
+    setTipping(true)
+    const res = await fetch('/api/tips', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fan_id: currentUser.id,
+        creator_id: creator.id,
+        amount: Math.round(parseFloat(tipAmount) * 100)
+      })
+    })
+    const { url } = await res.json()
+    if (url) window.location.href = url
+    setTipping(false)
   }
 
   if (loading) return (
@@ -87,7 +140,7 @@ export default function ProfilePage() {
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                 <span className="text-primary-foreground font-bold text-lg">F</span>
               </div>
-              <span className="text-xl font-bold text-foreground">FansSecrets</span>
+              <span className="text-xl font-bold text-foreground hidden sm:block">FansSecrets</span>
             </Link>
             <div className="flex items-center gap-4">
               <Link href="/discover"><Button variant="ghost">Discover</Button></Link>
@@ -138,41 +191,46 @@ export default function ProfilePage() {
                 <p className="text-xl font-bold text-foreground">{posts.length}</p>
                 <p className="text-sm text-muted-foreground">Posts</p>
               </div>
+              <div className="text-center">
+                <p className="text-xl font-bold text-foreground">{followerCount}</p>
+                <p className="text-sm text-muted-foreground">Followers</p>
+              </div>
             </div>
 
             <div className="flex flex-wrap justify-center md:justify-start gap-3">
-              {!isOwnProfile && tiers.length > 0 && (
-                <Button className="bg-primary hover:bg-primary/90" onClick={() => subscribe(tiers[0].id)}>
-                  Subscribe from ${(tiers[0].price/100).toFixed(2)}/mo
-                </Button>
+              {!isOwnProfile && (
+                <>
+                  {tiers.length > 0 && (
+                    <Button className="bg-primary hover:bg-primary/90" onClick={() => subscribe(tiers[0].id)}>
+                      Subscribe from ${(tiers[0].price/100).toFixed(2)}/mo
+                    </Button>
+                  )}
+                  <Button variant={isFollowing ? 'secondary' : 'outline'} onClick={toggleFollow}>
+                    {isFollowing ? <><Check className="h-4 w-4 mr-2" />Following</> : <><Bell className="h-4 w-4 mr-2" />Follow</>}
+                  </Button>
+                  <Button variant="outline" onClick={() => router.push('/messages')}>
+                    <MessageCircle className="h-4 w-4 mr-2" />Message
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowTipModal(true)}>
+                    <Gift className="h-4 w-4 mr-2" />Tip
+                  </Button>
+                </>
               )}
               {isOwnProfile && (
                 <Link href="/dashboard"><Button className="bg-primary hover:bg-primary/90">Edit Profile</Button></Link>
               )}
-              {!isOwnProfile && (
-                <Button variant="outline" onClick={() => router.push('/messages')}>
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Message
-                </Button>
-              )}
-              <Button variant="outline"><Gift className="h-4 w-4 mr-2" />Send Tip</Button>
-              <Button variant="outline" size="icon"><Bell className="h-4 w-4" /></Button>
               <Button variant="outline" size="icon"><Share2 className="h-4 w-4" /></Button>
             </div>
           </div>
         </div>
 
-        {tiers.length > 0 && (
+        {tiers.length > 0 && !isOwnProfile && (
           <div className="mt-12 mb-8">
             <h2 className="text-xl font-bold text-foreground mb-6">Subscription Tiers</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {tiers.map((tier, i) => (
-                <div
-                  key={tier.id}
-                  className={`relative rounded-2xl p-6 border transition-all cursor-pointer ${
-                    selectedTier === i ? 'border-primary bg-primary/5' : i === 1 ? 'border-primary/50 bg-card' : 'border-border bg-card hover:border-primary/30'
-                  }`}
-                  onClick={() => setSelectedTier(i)}
+                <div key={tier.id}
+                  className={`relative rounded-2xl p-6 border transition-all cursor-pointer ${i === 1 ? 'border-primary/50 bg-card' : 'border-border bg-card hover:border-primary/30'}`}
                 >
                   {i === 1 && (
                     <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
@@ -184,10 +242,7 @@ export default function ProfilePage() {
                     ${(tier.price/100).toFixed(2)}<span className="text-sm text-muted-foreground font-normal">/mo</span>
                   </p>
                   {tier.description && <p className="text-sm text-muted-foreground mb-4">{tier.description}</p>}
-                  <Button
-                    className="w-full bg-primary hover:bg-primary/90"
-                    onClick={() => subscribe(tier.id)}
-                  >
+                  <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => subscribe(tier.id)}>
                     Subscribe
                   </Button>
                 </div>
@@ -196,7 +251,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="border-b border-border mb-6">
+        <div className="border-b border-border mb-6 mt-8">
           <div className="flex items-center justify-between">
             <div className="flex gap-1">
               {[
@@ -205,12 +260,8 @@ export default function ProfilePage() {
                 { id: 'videos', label: 'Videos', icon: Video },
                 { id: 'locked', label: 'Locked', icon: Lock },
               ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${
-                    activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-                  }`}
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                 >
                   <tab.icon className="h-4 w-4" />
                   {tab.label}
@@ -255,7 +306,8 @@ export default function ProfilePage() {
               .map((post) => (
                 <div key={post.id} className="group relative rounded-xl overflow-hidden bg-card border border-border aspect-square">
                   {post.media_urls?.[0] ? (
-                    <img src={post.media_urls[0]} alt={post.title} className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${post.is_ppv ? 'blur-lg' : ''}`} />
+                    <img src={post.media_urls[0]} alt={post.title}
+                      className={`w-full h-full object-cover transition-transform group-hover:scale-105 ${post.is_ppv ? 'blur-lg' : ''}`} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-secondary">
                       <Image className="h-10 w-10 text-muted-foreground" />
@@ -275,9 +327,7 @@ export default function ProfilePage() {
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                     <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white">
-                      <div className="flex items-center gap-3">
-                        <span className="flex items-center gap-1 text-sm"><Heart className="h-4 w-4" />{post.likes || 0}</span>
-                      </div>
+                      <span className="flex items-center gap-1 text-sm"><Heart className="h-4 w-4" />{post.likes || 0}</span>
                     </div>
                   </div>
                 </div>
@@ -285,6 +335,33 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {showTipModal && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowTipModal(false)}>
+          <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Gift className="w-5 h-5 text-yellow-500" />Send a Tip to {creator.display_name || creator.username}
+            </h2>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {[5, 10, 20, 50, 100, 200].map(amount => (
+                <button key={amount}
+                  onClick={() => setTipAmount(String(amount))}
+                  className={`py-2 rounded-xl border text-sm font-semibold transition-colors ${tipAmount === String(amount) ? 'bg-primary text-white border-primary' : 'border-border text-foreground hover:border-primary/50'}`}>
+                  ${amount}
+                </button>
+              ))}
+            </div>
+            <div className="relative mb-4">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+              <input type="number" placeholder="Custom amount" value={tipAmount} onChange={e => setTipAmount(e.target.value)}
+                className="w-full bg-secondary border border-border rounded-xl pl-8 pr-4 py-3 text-foreground text-sm outline-none focus:border-primary" />
+            </div>
+            <Button className="w-full bg-primary hover:bg-primary/90" disabled={!tipAmount || tipping} onClick={sendTip}>
+              {tipping ? 'Processing...' : `Send $${tipAmount || '0'} Tip`}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
