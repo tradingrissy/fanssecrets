@@ -1,23 +1,19 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, X, TrendingUp, Users, MessageCircle } from 'lucide-react'
+import { Search, X, Users, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
-export default function SearchPage() {
+function SearchContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const [query, setQuery] = useState(searchParams.get('q') || '')
+  const [query, setQuery] = useState('')
   const [results, setResults] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
-
-  useEffect(() => {
-    if (query) handleSearch()
-  }, [])
 
   async function handleSearch() {
     if (!query.trim()) return
@@ -38,9 +34,7 @@ export default function SearchPage() {
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
             <Link href="/home">
-              <Button variant="ghost" size="icon">
-                <X className="w-5 h-5" />
-              </Button>
+              <Button variant="ghost" size="icon"><X className="w-5 h-5" /></Button>
             </Link>
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -128,5 +122,13 @@ export default function SearchPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+      <SearchContent />
+    </Suspense>
   )
 }
