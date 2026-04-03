@@ -5,10 +5,9 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
-  LayoutDashboard, BarChart3, MessageSquare, Users, DollarSign,
-  Settings, Image, Video, Lock, Send, Radio, LogOut, Plus,
-  Download, Clock, Wallet, CreditCard, ArrowUpRight, Camera,
-  Bell, TrendingUp, Heart, Eye
+  LayoutDashboard, BarChart3, Users, DollarSign,
+  Settings, Image, Video, Lock, Send, LogOut, Plus,
+  Wallet, Camera, TrendingUp, Heart, Eye, Share2
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -138,6 +137,11 @@ export default function DashboardPage() {
     { id: 'settings', icon: Settings, label: 'Settings' },
   ]
 
+  const externalLinks = [
+    { icon: BarChart3, label: 'Analytics', href: '/analytics' },
+    { icon: Share2, label: 'Referrals', href: '/referral' },
+  ]
+
   return (
     <div className="min-h-screen bg-background flex">
       <aside className="w-64 bg-card border-r border-border flex flex-col shrink-0">
@@ -157,6 +161,17 @@ export default function DashboardPage() {
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     activeTab === item.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                   }`}
+                >
+                  <item.icon className="h-5 w-5" />
+                  <span className="font-medium">{item.label}</span>
+                </button>
+              </li>
+            ))}
+            <li><div className="border-t border-border my-2" /></li>
+            {externalLinks.map((item) => (
+              <li key={item.href}>
+                <button onClick={() => router.push(item.href)}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-secondary"
                 >
                   <item.icon className="h-5 w-5" />
                   <span className="font-medium">{item.label}</span>
@@ -184,7 +199,7 @@ export default function DashboardPage() {
       <main className="flex-1 overflow-auto">
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border px-8 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">{navItems.find(n => n.id === activeTab)?.label}</h1>
+            <h1 className="text-2xl font-bold text-foreground">{navItems.find(n => n.id === activeTab)?.label || 'Dashboard'}</h1>
             <p className="text-muted-foreground text-sm">Welcome back, {profile?.display_name || profile?.username}</p>
           </div>
           <div className="flex gap-3">
@@ -214,7 +229,6 @@ export default function DashboardPage() {
                   </div>
                 ))}
               </div>
-
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="rounded-2xl bg-card border border-border p-6">
                   <h2 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
@@ -225,7 +239,7 @@ export default function DashboardPage() {
                       { icon: Lock, label: 'PPV', action: () => router.push('/dashboard/upload') },
                       { icon: Send, label: 'Message', action: () => router.push('/messages') },
                       { icon: DollarSign, label: 'Add Tier', action: () => setActiveTab('tiers') },
-                      { icon: TrendingUp, label: 'Analytics', action: () => setActiveTab('earnings') },
+                      { icon: BarChart3, label: 'Analytics', action: () => router.push('/analytics') },
                     ].map((action, i) => (
                       <button key={i} onClick={action.action} className="flex flex-col items-center gap-2 p-3 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors">
                         <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -236,14 +250,12 @@ export default function DashboardPage() {
                     ))}
                   </div>
                 </div>
-
                 <div className="rounded-2xl bg-card border border-border p-6">
                   <h2 className="text-lg font-semibold text-foreground mb-4">Recent Transactions</h2>
                   {transactions.length === 0 ? (
                     <div className="text-center py-8">
                       <DollarSign className="h-10 w-10 mx-auto mb-2 text-muted-foreground opacity-30" />
                       <p className="text-muted-foreground text-sm">No transactions yet</p>
-                      <p className="text-muted-foreground text-xs mt-1">Transactions will appear here once fans subscribe</p>
                     </div>
                   ) : transactions.map((tx) => (
                     <div key={tx.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 mb-2">
@@ -324,7 +336,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-sm text-muted-foreground block mb-1">Description — what do fans get?</label>
+                    <label className="text-sm text-muted-foreground block mb-1">Description</label>
                     <Input value={tierDesc} onChange={e => setTierDesc(e.target.value)} placeholder="Access to all my exclusive content" className="bg-secondary" />
                   </div>
                   <Button type="submit" className="bg-primary hover:bg-primary/90">Save Tier</Button>
@@ -366,8 +378,7 @@ export default function DashboardPage() {
                 <p className="text-foreground">You keep <span className="text-primary font-bold">80%</span> of all earnings. FansSecrets takes 20%.</p>
               </div>
               <Button className="bg-primary hover:bg-primary/90 w-full py-3">
-                <Wallet className="h-4 w-4 mr-2" />
-                Withdraw Funds
+                <Wallet className="h-4 w-4 mr-2" />Withdraw Funds
               </Button>
             </div>
           )}
